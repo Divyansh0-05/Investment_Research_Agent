@@ -36,6 +36,8 @@ const StateAnnotation = Annotation.Root({
     reducer: (_p, n) => n,
     default: () => ({
       businessSummary: "",
+      industryPosition: "",
+      growthDrivers: [],
       keyMetrics: [],
       recentDevelopments: [],
       competitors: [],
@@ -83,6 +85,14 @@ const StateAnnotation = Annotation.Root({
       bearCase: [],
       weightedScore: 0,
     }),
+  }),
+  executiveSummary: Annotation<string>({
+    reducer: (_p, n) => n,
+    default: () => "",
+  }),
+  report: Annotation<AgentResult | null>({
+    reducer: (_p, n) => n,
+    default: () => null,
   }),
 });
 
@@ -176,6 +186,14 @@ async function researchCompetitors(state: AgentState) {
 
 const ExtractionSchema = z.object({
   businessSummary: z.string().describe("3-4 sentence synthesis of the business and its current position"),
+  industryPosition: z
+    .string()
+    .describe("Exactly one sentence describing whether the company is a Category Leader, Fast-growing Challenger, or Niche Player, with a short justification."),
+  growthDrivers: z
+    .array(z.string())
+    .min(3)
+    .max(4)
+    .describe("3-4 concise bullet-style growth drivers derived only from the provided research context."),
   keyMetrics: z
     .array(z.object({ label: z.string(), value: z.string() }))
     .describe("5-8 key financial/operational metrics found in the research, with label and value. If a metric is not available, omit it rather than guessing."),
@@ -190,7 +208,7 @@ async function extractStructuredData(state: AgentState) {
     {
       role: "system",
       content:
-        "You are an equity research analyst. Extract only what is supported by the provided research snippets. Never invent numbers. If data is sparse, say so in businessSummary rather than fabricating metrics.",
+        "You are an equity research analyst. Extract only what is supported by the provided research snippets. Never invent numbers. If data is sparse, say so in businessSummary rather than fabricating metrics. Also classify industryPosition in exactly one sentence as Category Leader, Fast-growing Challenger, or Niche Player with a short justification, and extract 3-4 concise growthDrivers from the same research context.",
     },
     {
       role: "user",
@@ -319,6 +337,44 @@ async function decideVerdict(state: AgentState) {
   return { verdict: { ...result, weightedScore } };
 }
 
+function firstSentence(text: string) {
+  return text.trim().match(/.*?[.!?](?:\s|$)/)?.[0]?.trim() || text.trim();
+}
+
+function buildExecutiveSummary(verdict: Verdict) {
+  const headline = verdict.headline.trim();
+  const thesisLead = firstSentence(verdict.thesis);
+
+  if (!headline) return thesisLead;
+  if (!thesisLead) return headline;
+  return `${headline} ${thesisLead}`;
+}
+
+function buildAgentResult(state: AgentState): AgentResult {
+  const executiveSummary = state.executiveSummary || buildExecutiveSummary(state.verdict);
+
+  return {
+    companyName: state.companyName,
+    resolvedIdentity: state.resolvedIdentity,
+    executiveSummary,
+    research: state.research,
+    scores: state.scores,
+    scoreRationale: state.scoreRationale,
+    review: state.review,
+    revisionCount: state.revisionCount,
+    verdict: state.verdict,
+    sources: dedupeSources(state.sources),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+async function generateReport(state: AgentState) {
+  const executiveSummary = buildExecutiveSummary(state.verdict);
+  const report = buildAgentResult({ ...state, executiveSummary });
+
+  return { executiveSummary, report };
+}
+
 // ---------------------------------------------------------------------------
 // Graph assembly
 // ---------------------------------------------------------------------------
@@ -334,6 +390,7 @@ export function buildInvestmentAgent() {
     .addNode("reviewer", reviewNode)
     .addNode("revise", reviseNode)
     .addNode("decide", decideVerdict)
+    .addNode("generate_report", generateReport)
     .addEdge(START, "identify")
     .addEdge("identify", "research_news")
     .addEdge("identify", "research_financials")
@@ -348,7 +405,8 @@ export function buildInvestmentAgent() {
       revise: "revise",
     })
     .addEdge("revise", "reviewer")
-    .addEdge("decide", END);
+    .addEdge("decide", "generate_report")
+    .addEdge("generate_report", END);
 
   return graph.compile();
 }
@@ -366,16 +424,5 @@ export function dedupeSources(sources: SourceRef[]): SourceRef[] {
 }
 
 export function toAgentResult(state: AgentState): AgentResult {
-  return {
-    companyName: state.companyName,
-    resolvedIdentity: state.resolvedIdentity,
-    research: state.research,
-    scores: state.scores,
-    scoreRationale: state.scoreRationale,
-    review: state.review,
-    revisionCount: state.revisionCount,
-    verdict: state.verdict,
-    sources: dedupeSources(state.sources),
-    generatedAt: new Date().toISOString(),
-  };
+  return state.report || buildAgentResult(state);
 }

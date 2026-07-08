@@ -5,6 +5,8 @@ export interface SourceRef {
 
 export interface ExtractedResearch {
   businessSummary: string;
+  industryPosition: string;
+  growthDrivers: string[];
   keyMetrics: { label: string; value: string }[];
   recentDevelopments: string[];
   competitors: string[];
@@ -52,6 +54,7 @@ export interface AgentResult {
     listingStatus: string;
     summary: string;
   };
+  executiveSummary: string;
   research: ExtractedResearch;
   scores: DimensionScores;
   scoreRationale: ScoreRationale;
@@ -72,6 +75,7 @@ export type ProgressStage =
   | "reviewer"
   | "revise"
   | "decide"
+  | "generate_report"
   | "done"
   | "error";
 
