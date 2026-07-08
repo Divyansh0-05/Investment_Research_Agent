@@ -22,6 +22,16 @@ export interface DimensionScores {
 
 export type ScoreRationale = Record<string, string>;
 
+export interface Review {
+  missingRisks: string[];
+  unsupportedClaims: string[];
+  weakReasoningFlags: string[];
+  completeness: number;
+  reviewConfidence: number;
+  verdict: "approved" | "needs_revision";
+  revisionInstructions?: string;
+}
+
 export type Decision = "INVEST" | "WATCH" | "PASS";
 
 export interface Verdict {
@@ -45,6 +55,8 @@ export interface AgentResult {
   research: ExtractedResearch;
   scores: DimensionScores;
   scoreRationale: ScoreRationale;
+  review: Review;
+  revisionCount: number;
   verdict: Verdict;
   sources: SourceRef[];
   generatedAt: string;
@@ -57,6 +69,8 @@ export type ProgressStage =
   | "research_competitors"
   | "extract"
   | "score"
+  | "reviewer"
+  | "revise"
   | "decide"
   | "done"
   | "error";

@@ -51,5 +51,9 @@ export const STAGES = [
 }[];
 
 export const STAGE_LABELS: Record<string, string> = Object.fromEntries(
-  STAGES.map((stage) => [stage.id, stage.label])
+  [
+    ...STAGES.map((stage) => [stage.id, stage.label]),
+    ["reviewer", "Reviewing score rationale"],
+    ["revise", "Revising scores from review"],
+  ]
 );

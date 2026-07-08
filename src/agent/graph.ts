@@ -6,6 +6,7 @@ import type {
   AgentResult,
   DimensionScores,
   ExtractedResearch,
+  Review,
   ScoreRationale,
   SourceRef,
   Verdict,
@@ -55,6 +56,21 @@ const StateAnnotation = Annotation.Root({
   scoreRationale: Annotation<ScoreRationale>({
     reducer: (_p, n) => n,
     default: () => ({}),
+  }),
+  review: Annotation<Review>({
+    reducer: (_p, n) => n,
+    default: () => ({
+      missingRisks: [],
+      unsupportedClaims: [],
+      weakReasoningFlags: [],
+      completeness: 0,
+      reviewConfidence: 0,
+      verdict: "approved",
+    }),
+  }),
+  revisionCount: Annotation<number>({
+    reducer: (_p, n) => n,
+    default: () => 0,
   }),
   verdict: Annotation<Verdict>({
     reducer: (_p, n) => n,
@@ -194,8 +210,13 @@ const ScoreSchema = z.object({
   rationale: z.record(z.string()).describe("One short sentence justifying each score, keyed by dimension name"),
 });
 
-async function scoreDimensions(state: AgentState) {
+async function generateScores(state: AgentState, revisionInstructions?: string) {
   const model = getModel(0.2).withStructuredOutput(ScoreSchema);
+  const userContent = `Company: ${state.resolvedIdentity.fullName}\n\nBusiness summary: ${state.research.businessSummary}\n\nKey metrics: ${JSON.stringify(state.research.keyMetrics)}\n\nRecent developments: ${state.research.recentDevelopments.join("; ")}\n\nCompetitors: ${state.research.competitors.join(", ")}\n\nRisks: ${state.research.risks.join("; ")}${
+    revisionInstructions
+      ? `\n\nReviewer revision instructions: ${revisionInstructions}`
+      : ""
+  }`;
   const result = await model.invoke([
     {
       role: "system",
@@ -204,11 +225,57 @@ async function scoreDimensions(state: AgentState) {
     },
     {
       role: "user",
-      content: `Company: ${state.resolvedIdentity.fullName}\n\nBusiness summary: ${state.research.businessSummary}\n\nKey metrics: ${JSON.stringify(state.research.keyMetrics)}\n\nRecent developments: ${state.research.recentDevelopments.join("; ")}\n\nCompetitors: ${state.research.competitors.join(", ")}\n\nRisks: ${state.research.risks.join("; ")}`,
+      content: userContent,
     },
   ]);
   const { rationale, ...scores } = result;
   return { scores: scores as DimensionScores, scoreRationale: rationale };
+}
+
+async function scoreDimensions(state: AgentState) {
+  return generateScores(state);
+}
+
+const ReviewSchema = z.object({
+  missingRisks: z.array(z.string()),
+  unsupportedClaims: z.array(z.string()),
+  weakReasoningFlags: z.array(z.string()),
+  completeness: z.number().min(0).max(10),
+  reviewConfidence: z.number().min(0).max(10),
+  verdict: z.enum(["approved", "needs_revision"]),
+  revisionInstructions: z.string().optional(),
+});
+
+async function reviewNode(state: AgentState) {
+  const model = getModel(0.1).withStructuredOutput(ReviewSchema);
+  const result = await model.invoke([
+    {
+      role: "system",
+      content:
+        "You are a reviewer for an investment research pipeline. Critique only. Look for unsupported claims, missing risks, and weak score rationale. Decide whether the scoring is approved or needs one revision. Never rewrite the research yourself.",
+    },
+    {
+      role: "user",
+      content: `Company: ${state.resolvedIdentity.fullName}\n\nExtracted research: ${JSON.stringify(state.research)}\n\nScores: ${JSON.stringify(state.scores)}\n\nScore rationale: ${JSON.stringify(state.scoreRationale)}\n\nRaw news research: ${state.newsRaw}\n\nRaw financial research: ${state.financialsRaw}\n\nRaw competitive research: ${state.competitorsRaw}`,
+    },
+  ]);
+
+  return { review: result };
+}
+
+async function reviseNode(state: AgentState) {
+  const scoreUpdate = await generateScores(state, state.review.revisionInstructions);
+
+  return {
+    ...scoreUpdate,
+    revisionCount: state.revisionCount + 1,
+  };
+}
+
+function routeAfterReview(state: AgentState) {
+  if (state.revisionCount >= 1) return "decide";
+  if (state.review.verdict === "needs_revision") return "revise";
+  return "decide";
 }
 
 const VerdictSchema = z.object({
@@ -264,6 +331,8 @@ export function buildInvestmentAgent() {
     .addNode("research_competitors", researchCompetitors)
     .addNode("extract", extractStructuredData)
     .addNode("score", scoreDimensions)
+    .addNode("reviewer", reviewNode)
+    .addNode("revise", reviseNode)
     .addNode("decide", decideVerdict)
     .addEdge(START, "identify")
     .addEdge("identify", "research_news")
@@ -273,7 +342,12 @@ export function buildInvestmentAgent() {
     .addEdge("research_financials", "extract")
     .addEdge("research_competitors", "extract")
     .addEdge("extract", "score")
-    .addEdge("score", "decide")
+    .addEdge("score", "reviewer")
+    .addConditionalEdges("reviewer", routeAfterReview, {
+      decide: "decide",
+      revise: "revise",
+    })
+    .addEdge("revise", "reviewer")
     .addEdge("decide", END);
 
   return graph.compile();
@@ -298,6 +372,8 @@ export function toAgentResult(state: AgentState): AgentResult {
     research: state.research,
     scores: state.scores,
     scoreRationale: state.scoreRationale,
+    review: state.review,
+    revisionCount: state.revisionCount,
     verdict: state.verdict,
     sources: dedupeSources(state.sources),
     generatedAt: new Date().toISOString(),
