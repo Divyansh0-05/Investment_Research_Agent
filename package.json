@@ -10,7 +10,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@langchain/anthropic": "^0.3.11",
     "@langchain/core": "^0.3.26",
     "@langchain/google-genai": "^0.2.18",
     "@langchain/langgraph": "^0.2.36",

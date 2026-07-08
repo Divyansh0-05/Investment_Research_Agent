@@ -19,11 +19,11 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY || !process.env.TAVILY_API_KEY) {
+  if (!process.env.GOOGLE_API_KEY || !process.env.TAVILY_API_KEY) {
     return new Response(
       JSON.stringify({
         error:
-          "Server is missing ANTHROPIC_API_KEY or TAVILY_API_KEY. Add them to .env.local (see README).",
+          "Server is missing GOOGLE_API_KEY or TAVILY_API_KEY. Add them to .env.local (see README).",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );

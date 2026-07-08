@@ -72,10 +72,10 @@ presentation layer (React components).
 - Runs in any modern browser (Chrome, Edge, Firefox, Safari — last 2
   versions).
 - Server: Node.js 18.18+, deployable to Vercel or any Node-compatible host.
-- External dependencies: Anthropic API (LLM), Tavily API (web search).
+- External dependencies: Google Gemini API (LLM), Tavily API (web search).
 
 ### 2.5 Assumptions and Dependencies
-- The user provides valid API keys for Anthropic and Tavily.
+- The user provides valid API keys for Google Gemini and Tavily.
 - Web search results are assumed to be a reasonable, if imperfect, proxy for
   ground-truth company data; the system does not verify claims against a
   primary financial data source.
@@ -135,7 +135,7 @@ LangGraph.js StateGraph
             → extract → score → decide
    │                              │
    ▼                              ▼
-Tavily Search API          Anthropic Claude API
+Tavily Search API          Google Gemini API
 ```
 
 Full detail is in the project `README.md`, section 3 ("How it works").

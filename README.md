@@ -35,7 +35,7 @@ answer.
 
 ### Prerequisites
 - Node.js 18.18+ (Node 20+ recommended)
-- An [Anthropic API key](https://console.anthropic.com/)
+- A [Google Gemini API key](https://aistudio.google.com/app/apikey)
 - A [Tavily API key](https://tavily.com/) (free tier is enough — this powers
   the web research)
 
@@ -51,8 +51,7 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-sonnet-4-5-20250929   # optional override
+GOOGLE_API_KEY=...
 TAVILY_API_KEY=tvly-...
 ```
 
@@ -72,7 +71,7 @@ npm i -g vercel
 vercel
 ```
 
-Add `ANTHROPIC_API_KEY` and `TAVILY_API_KEY` as environment variables in the
+Add `GOOGLE_API_KEY` and `TAVILY_API_KEY` as environment variables in the
 Vercel project settings, then `vercel --prod`. No other config needed — the
 API route runs on Node.js runtime with a 120s max duration to comfortably fit
 the multi-step agent run.
@@ -90,7 +89,7 @@ Browser (React, SSE client)
 Next.js API Route (Node runtime, streams Server-Sent Events)
    │  runs the LangGraph.js agent, streams each node's completion
    ▼
-LangGraph.js StateGraph  ──►  Anthropic Claude (via @langchain/anthropic)
+LangGraph.js StateGraph  ──►  Google Gemini 2.5 Flash (via @langchain/google-genai)
    │                     ──►  Tavily Search (via @langchain/tavily)
    ▼
 Structured AgentResult → streamed back to browser as the final event
@@ -183,7 +182,7 @@ components/ResearchDetails.tsx    Extracted metrics, developments, sources
   communication, so SSE (a single `ReadableStream` from a Next.js Route
   Handler) is simpler and needs no extra infrastructure.
 
-- **Claude over other providers**, purely as a default choice — the model
+- **Gemini 2.5 Flash as the LLM provider**, chosen as the default model — the model
   client is isolated in one function (`getModel()` in `graph.ts`), so
   swapping to OpenAI/Gemini is a localized change, not a rewrite.
 
