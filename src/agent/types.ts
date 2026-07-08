@@ -20,6 +20,8 @@ export interface DimensionScores {
   valuation: number; // higher = more attractively valued
 }
 
+export type ScoreRationale = Record<string, string>;
+
 export type Decision = "INVEST" | "WATCH" | "PASS";
 
 export interface Verdict {
@@ -42,6 +44,7 @@ export interface AgentResult {
   };
   research: ExtractedResearch;
   scores: DimensionScores;
+  scoreRationale: ScoreRationale;
   verdict: Verdict;
   sources: SourceRef[];
   generatedAt: string;

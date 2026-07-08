@@ -1,26 +1,9 @@
 "use client";
 
-import type { ProgressEvent, ProgressStage } from "@/src/agent/types";
+import type { ProgressEvent } from "@/src/agent/types";
+import { STAGES } from "@/src/agent/stages";
 
-const STAGE_ORDER: ProgressStage[] = [
-  "identify",
-  "research_news",
-  "research_financials",
-  "research_competitors",
-  "extract",
-  "score",
-  "decide",
-];
-
-const STAGE_TITLES: Record<string, string> = {
-  identify: "Identify company",
-  research_news: "Scan recent news",
-  research_financials: "Scan financials",
-  research_competitors: "Scan competitive landscape",
-  extract: "Synthesize findings",
-  score: "Score investment dimensions",
-  decide: "Form final verdict",
-};
+const ORDERED_STAGES = [...STAGES].sort((a, b) => a.order - b.order);
 
 export default function ProgressTimeline({ events }: { events: ProgressEvent[] }) {
   const completedStages = new Set(events.filter((e) => e.status === "completed").map((e) => e.stage));
@@ -34,14 +17,16 @@ export default function ProgressTimeline({ events }: { events: ProgressEvent[] }
         <span className="text-xs font-mono text-slate-500">LangGraph.js state machine</span>
       </div>
       <ol className="space-y-0">
-        {STAGE_ORDER.map((stage, i) => {
-          const done = completedStages.has(stage);
-          const isCurrent = !done && !hasError && (i === 0 || completedStages.has(STAGE_ORDER[i - 1]));
-          const isParallelGroup = ["research_news", "research_financials", "research_competitors"].includes(stage);
+        {ORDERED_STAGES.map((stage, i) => {
+          const done = completedStages.has(stage.id);
+          const previousStage = ORDERED_STAGES[i - 1]?.id;
+          const isCurrent =
+            !done && !hasError && (i === 0 || (previousStage !== undefined && completedStages.has(previousStage)));
+          const isParallelGroup = ["research_news", "research_financials", "research_competitors"].includes(stage.id);
 
           return (
-            <li key={stage} className="relative pl-9 pb-5 last:pb-0">
-              {i < STAGE_ORDER.length - 1 && (
+            <li key={stage.id} className="relative pl-9 pb-5 last:pb-0">
+              {i < ORDERED_STAGES.length - 1 && (
                 <span
                   className={`absolute left-[11px] top-6 bottom-0 w-px ${
                     done ? "bg-accent/50" : "bg-line"
@@ -61,7 +46,7 @@ export default function ProgressTimeline({ events }: { events: ProgressEvent[] }
               </span>
               <div className="flex items-baseline gap-2">
                 <span className={`text-sm ${done ? "text-slate-200" : isCurrent ? "text-slate-200" : "text-slate-500"}`}>
-                  {STAGE_TITLES[stage]}
+                  {stage.timelineLabel}
                 </span>
                 {isParallelGroup && (
                   <span className="text-[10px] uppercase tracking-wide text-slate-600 font-mono">parallel</span>

@@ -6,9 +6,11 @@ import type {
   AgentResult,
   DimensionScores,
   ExtractedResearch,
+  ScoreRationale,
   SourceRef,
   Verdict,
 } from "./types";
+export { STAGE_LABELS } from "./stages";
 
 // ---------------------------------------------------------------------------
 // State definition
@@ -49,6 +51,10 @@ const StateAnnotation = Annotation.Root({
       risk: 5,
       valuation: 5,
     }),
+  }),
+  scoreRationale: Annotation<ScoreRationale>({
+    reducer: (_p, n) => n,
+    default: () => ({}),
   }),
   verdict: Annotation<Verdict>({
     reducer: (_p, n) => n,
@@ -202,7 +208,7 @@ async function scoreDimensions(state: AgentState) {
     },
   ]);
   const { rationale, ...scores } = result;
-  return { scores: scores as DimensionScores };
+  return { scores: scores as DimensionScores, scoreRationale: rationale };
 }
 
 const VerdictSchema = z.object({
@@ -291,18 +297,9 @@ export function toAgentResult(state: AgentState): AgentResult {
     resolvedIdentity: state.resolvedIdentity,
     research: state.research,
     scores: state.scores,
+    scoreRationale: state.scoreRationale,
     verdict: state.verdict,
     sources: dedupeSources(state.sources),
     generatedAt: new Date().toISOString(),
   };
 }
-
-export const STAGE_LABELS: Record<string, string> = {
-  identify: "Identifying company",
-  research_news: "Researching recent news",
-  research_financials: "Researching financials",
-  research_competitors: "Researching competitive landscape",
-  extract: "Synthesizing research into structured findings",
-  score: "Scoring across 6 investment dimensions",
-  decide: "Forming final investment verdict",
-};

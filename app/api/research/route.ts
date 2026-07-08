@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { buildInvestmentAgent, toAgentResult, STAGE_LABELS } from "@/src/agent/graph";
+import { mergeStateUpdate } from "@/lib/mergeStateUpdate";
+import { buildInvestmentAgent, toAgentResult } from "@/src/agent/graph";
+import { STAGE_LABELS } from "@/src/agent/stages";
 import type { ProgressEvent } from "@/src/agent/types";
 
 export const runtime = "nodejs";
@@ -54,16 +56,7 @@ export async function POST(req: NextRequest) {
           for (const [nodeName, update] of Object.entries(chunk) as [string, any][]) {
             const label = STAGE_LABELS[nodeName] || nodeName;
 
-            // Merge this node's partial update into our accumulated view of state,
-            // mirroring the reducers defined in the graph (sources concatenate,
-            // everything else is a straight replace).
-            for (const [key, value] of Object.entries(update)) {
-              if (key === "sources" && Array.isArray(value)) {
-                accumulated.sources = [...accumulated.sources, ...value];
-              } else {
-                accumulated[key] = value;
-              }
-            }
+            mergeStateUpdate(accumulated, update);
 
             send({
               stage: nodeName as ProgressEvent["stage"],
