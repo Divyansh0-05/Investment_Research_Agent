@@ -1,0 +1,68 @@
+export interface SourceRef {
+  title: string;
+  url: string;
+}
+
+export interface ExtractedResearch {
+  businessSummary: string;
+  keyMetrics: { label: string; value: string }[];
+  recentDevelopments: string[];
+  competitors: string[];
+  risks: string[];
+}
+
+export interface DimensionScores {
+  financialHealth: number; // 0-10
+  growth: number;
+  moat: number;
+  management: number;
+  risk: number; // higher = safer (0-10, 10 = very low risk)
+  valuation: number; // higher = more attractively valued
+}
+
+export type Decision = "INVEST" | "WATCH" | "PASS";
+
+export interface Verdict {
+  decision: Decision;
+  confidence: number; // 0-100
+  headline: string;
+  thesis: string;
+  bullCase: string[];
+  bearCase: string[];
+  weightedScore: number; // 0-10
+}
+
+export interface AgentResult {
+  companyName: string;
+  resolvedIdentity: {
+    fullName: string;
+    sector: string;
+    listingStatus: string;
+    summary: string;
+  };
+  research: ExtractedResearch;
+  scores: DimensionScores;
+  verdict: Verdict;
+  sources: SourceRef[];
+  generatedAt: string;
+}
+
+export type ProgressStage =
+  | "identify"
+  | "research_news"
+  | "research_financials"
+  | "research_competitors"
+  | "extract"
+  | "score"
+  | "decide"
+  | "done"
+  | "error";
+
+export interface ProgressEvent {
+  stage: ProgressStage;
+  label: string;
+  status: "started" | "completed" | "error";
+  detail?: string;
+  result?: AgentResult;
+  error?: string;
+}
